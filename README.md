@@ -76,6 +76,45 @@ signal_bot/
    '''
    python main.py
    '''
+
+## Deployment (Free 24/7) ☁️
+	This bot is configured to run on Render (Free Tier) combined with UptimeRobot.
+
+	1. **Deploy to Render**
+		Create a new Web Service on Render.
+
+		Connect your GitHub repository.
+
+		Settings:
+
+		Runtime: Python 3
+
+		Build Command: 
+		'''pip install -r requirements.txt
+		'''
+
+		Start Command: 
+		'''
+		python main.py
+		'''
+
+		Environment Variables:
+
+		Add TELEGRAM_TOKEN and TELEGRAM_CHAT_ID.
+
+	2. **Set Up "The Poker" (UptimeRobot)**
+		Render spins down free servers after 15 minutes of inactivity. To prevent this:
+
+		Copy your Render app URL (e.g., https://vic-signal-bot.onrender.com).
+
+		Go to UptimeRobot and create a new Monitor.
+
+		Monitor Type: HTTP(s).
+
+		Interval: 5 minutes.
+
+		This "pings" the keep_alive.py server, keeping your bot awake 24/7.   
+   
   ## Telegram Commands 🤖
 
    | Command | Description |
