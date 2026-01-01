@@ -10,6 +10,13 @@ A Python-based crypto trading signal bot that monitors markets 24/7 using techni
 * **Always-On Design:** Runs continuously with configurable intervals.
 * **Privacy-Friendly:** No wallet access or trading API keys required.
 
+## New: The AI Upgrade 🧠
+This bot has been upgraded with an AI Brain (Google Gemma 3 via OpenRouter) to add "common sense" to its trading logic:
+* **The News Guard:** Automatically checks market sentiment before alerts. If news is "Negative" (e.g., hacks/war), it cancels the alert to protect your KES.
+* **Morning Briefing:** Sends a clean, 3-bullet summary of the market vibe to your Telegram every morning at 8:00 AM.
+* **The Chat Mentor:** Allows you to ask questions directly using `/ask` (e.g., `/ask Should I buy SOL?`).
+* **Sentiment Score:** Combines RSI math with a real-time news sentiment score (0-100%) for higher confidence signals.
+
 ## How It Works 🧠
 
 The bot runs in a simple loop:
@@ -21,20 +28,22 @@ The bot runs in a simple loop:
 4. **Notify:** Sends a Telegram alert immediately when a signal appears.
 
 ## Tech Stack 🛠️
-
 * **Python 3.10+**
-* **yfinance:** Market data
-* **pandas_ta:** Technical indicators
-* **python-telegram-bot:** Messaging & commands
+* **OpenRouter (Gemma 3):** AI Logic
+* **yfinance & pandas_ta:** Market data and indicators
+* **feedparser:** Real-time news ingestion
+* **Flask:** Keep-alive web server
 
 ## Project Structure 📂
 
 '''
 signal_bot/
-├── data_manager.py   # Fetches market data
+├── main.py           # Core loop and signal logic
+├── ai_brain.py       # AI functions and News Guard
+├── data_manager.py   # Yahoo Finance data fetching
 ├── indicators.py     # RSI calculations
-├── notifier.py       # Telegram notifications
-├── main.py           # Core application loop
+├── notifier.py       # Telegram API handling
+├── keep_alive.py     # Flask server for 24/7 uptime
 ├── .env              # Environment variables (ignored by Git)
 └── requirements.txt  # Dependencies
 '''
@@ -70,6 +79,7 @@ signal_bot/
    '''
    TELEGRAM_TOKEN=your_bot_token
    TELEGRAM_CHAT_ID=your_chat_id
+   OPENROUTER_API_KEY=your_openrouter_api_key
    '''
 
 5. **Run the Bot**
@@ -122,6 +132,8 @@ signal_bot/
    | `/status` | Check bot status |
    | `/check` | Force a market scan |
    | `/help` | Show available commands |
+   | `/sentiment` |	Get the current AI sentiment score |
+   | `/ask [query]`	| Ask the 'Matatu Pilot' mentor a question |
    
    ## Configuration 🔧
    
