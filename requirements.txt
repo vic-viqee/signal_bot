@@ -4,3 +4,5 @@ pandas
 pandas_ta
 Flask
 python-dotenv
+feedparser
+openai

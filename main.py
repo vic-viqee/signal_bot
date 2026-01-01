@@ -3,101 +3,89 @@ from datetime import datetime
 from data_manager import get_crypto_data
 from indicators import add_indicators
 from notifier import send_telegram_message, get_new_commands
-from keep_alive import keep_alive  # <--- Import the web server
+from keep_alive import keep_alive
+from ai_brain import (
+    check_news_safety, generate_market_reason, 
+    generate_morning_briefing, ask_crypto_mentor, get_sentiment_score
+)
 
-# --- CONFIGURATION ---
 COINS_TO_WATCH = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD']
-CHECK_INTERVAL = 3600  # Check market every 1 hour (3600 seconds)
-RSI_LOWER_LIMIT = 30   # Buy Signal
-RSI_UPPER_LIMIT = 70   # Sell Signal
+CHECK_INTERVAL = 3600 
+RSI_LOWER_LIMIT = 30  
+RSI_UPPER_LIMIT = 70  
 
 def run_market_scan(is_manual=False):
-    """Checks all coins for trading signals"""
     timestamp = datetime.now().strftime('%H:%M')
-    print(f"\n--- Market Scan at {timestamp} ---")
+    sentiment_val = get_sentiment_score()
     
-    # Initialize the report string for manual checks
-    status_report = f"📊 **Manual Market Report ({timestamp})**\n"
-    
-    for ticker in COINS_TO_WATCH:
-        # 1. Fetch Data
-        df = get_crypto_data(ticker)
-        if df is None:
-            continue
+    if is_manual:
+        # Simple status report for /check
+        mood = "🔥" if sentiment_val > 0.6 else "❄️" if sentiment_val < 0.4 else "😐"
+        send_telegram_message(f"📊 {mood} Market Mood: {int(sentiment_val*100)}%")
 
-        # 2. Analyze
+    for ticker in COINS_TO_WATCH:
+        df = get_crypto_data(ticker)
+        if df is None: continue
         df = add_indicators(df)
         rsi = df.iloc[-1]['RSI_14']
-        
-        print(f"   {ticker}: RSI {rsi:.2f}")
 
-        # 3. Build Manual Report
-        icon = "🟢" if rsi < 35 else "🔴" if rsi > 65 else "⚪"
-        status_report += f"{icon} {ticker}: RSI {rsi:.2f}\n"
-
-        # 4. Notify (Automatic Alerts)
+        # --- THE CLEAN SIGNAL LOGIC ---
         if rsi < RSI_LOWER_LIMIT:
-            send_telegram_message(f"🚨 BUY ALERT: {ticker} is cheap! (RSI: {rsi:.2f})")
+            if check_news_safety():
+                reason = generate_market_reason()
+                confidence = ((1 - (rsi/100)) * sentiment_val) * 100
+                # ONE SIMPLE RESPONSE
+                send_telegram_message(f"🚨 BUY {ticker} @ RSI {rsi:.1f}\n💎 Confidence: {int(confidence)}%\n🤔 {reason}")
+            else:
+                print(f"Skipped {ticker} due to bad news.")
+
         elif rsi > RSI_UPPER_LIMIT:
-            send_telegram_message(f"🚨 SELL ALERT: {ticker} is expensive! (RSI: {rsi:.2f})")
-            
-    # 5. Send Report (Manual Mode Only)
-    if is_manual:
-        send_telegram_message(status_report)
+            reason = generate_market_reason()
+            send_telegram_message(f"🚨 SELL {ticker} @ RSI {rsi:.1f}\n🤔 {reason}")
 
 def handle_user_command(command):
-    """Decides what to do when you talk to the bot"""
-    command = command.lower().strip()
-    
-    if command == "/status":
-        msg = f"✅ **System Online**\n" \
-              f"👀 Watching: {len(COINS_TO_WATCH)} coins\n" \
-              f"⏳ Interval: {CHECK_INTERVAL}s"
-        send_telegram_message(msg)
-        
-    elif command == "/check":
-        send_telegram_message("🔄 Checking prices now...")
+    cmd = command.strip().lower()
+    if cmd == "/status":
+        send_telegram_message("✅ Bot is active.")
+    elif cmd == "/check":
         run_market_scan(is_manual=True)
-        
-    elif command == "/help":
-        send_telegram_message("Available commands:\n/status - System health\n/check - Force price check")
+    elif cmd == "/sentiment":
+        score = get_sentiment_score()
+        send_telegram_message(f"📈 Market Vibe: {int(score*100)}%\n{generate_market_reason()}")
+    elif cmd.startswith("/ask"):
+        question = cmd[5:]
+        if question:
+            send_telegram_message(f"🤖 {ask_crypto_mentor(question)}")
+    elif cmd == "/help":
+        send_telegram_message("/check, /sentiment, /ask")
 
 if __name__ == "__main__":
-    print("🤖 Bot started. Waiting for commands...")
-    send_telegram_message("🤖 System Online. Send /help for commands.")
-    
-    # --- START THE WEB SERVER (Crucial for Cloud Deployment) ---
-    keep_alive()  
-    # -----------------------------------------------------------
-
+    keep_alive()
     last_check_time = 0
     last_update_id = None 
+    sent_morning_briefing = False 
 
     while True:
         try:
-            # --- TASK 1: Check for Telegram Commands (Every 2 seconds) ---
             updates = get_new_commands(last_update_id)
-            
             for update in updates:
                 last_update_id = update["update_id"] + 1 
-                
                 if "message" in update and "text" in update["message"]:
-                    text = update["message"]["text"]
-                    print(f"📩 Received: {text}")
-                    handle_user_command(text)
+                    handle_user_command(update["message"]["text"])
 
-            # --- TASK 2: Check Market Prices (Every 1 Hour) ---
-            current_time = time.time()
-            if current_time - last_check_time > CHECK_INTERVAL:
+            now = datetime.now()
+            # 8 AM Morning Briefing
+            if now.hour == 4 and not sent_morning_briefing:
+                send_telegram_message(f"🌅 Morning Briefing:\n{generate_morning_briefing()}")
+                sent_morning_briefing = True
+            elif now.hour != 4:
+                sent_morning_briefing = False
+
+            if time.time() - last_check_time > CHECK_INTERVAL:
                 run_market_scan()
-                last_check_time = current_time
+                last_check_time = time.time()
 
-            # Sleep briefly to save your CPU
             time.sleep(2)
-            
-        except KeyboardInterrupt:
-            print("\nBot stopped by user.")
-            break
         except Exception as e:
-            print(f"Error in main loop: {e}")
+            print(f"Loop Error: {e}")
             time.sleep(5)
